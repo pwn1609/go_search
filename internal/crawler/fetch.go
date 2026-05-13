@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
+
+const crawlerUserAgent = "MyCrawler/1.0"
 
 func fetch(raw string) (*http.Response, error) {
 	// Parse the URL first
@@ -37,7 +40,7 @@ func fetch(raw string) (*http.Response, error) {
 	}
 
 	// Set a User-Agent (important for crawlers)
-	req.Header.Set("User-Agent", "MyCrawler/1.0")
+	req.Header.Set("User-Agent", crawlerUserAgent)
 
 	client := &http.Client{Timeout: 15 * time.Second}
 
@@ -74,6 +77,7 @@ func getRobotsTxt(baseDom string, hos *Host) error {
 
 	scanner := bufio.NewScanner(res.Body)
 	lineNum := 0
+	relevantBlock := false // whether current User-Agent block applies to us
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
@@ -85,13 +89,28 @@ func getRobotsTxt(baseDom string, hos *Host) error {
 			fmt.Printf("getRobotsTxt: skipping malformed line %d: %q\n", lineNum, line)
 			continue
 		}
-		switch strings.ToLower(strings.TrimSpace(splitLine[0])) {
+		key := strings.ToLower(strings.TrimSpace(splitLine[0]))
+		value := strings.TrimSpace(splitLine[1])
+
+		if key == "user-agent" {
+			agent := strings.ToLower(value)
+			relevantBlock = (agent == "*" || strings.Contains(agent, "mycrawler"))
+			continue
+		}
+
+		if !relevantBlock {
+			continue
+		}
+
+		switch key {
 		case "disallow":
-			hos.disallowed = append(hos.disallowed, strings.TrimSpace(splitLine[1]))
+			hos.disallowed = append(hos.disallowed, value)
 		case "allow":
-			hos.allowed = append(hos.allowed, strings.TrimSpace(splitLine[1]))
+			hos.allowed = append(hos.allowed, value)
 		case "crawl-delay":
-			hos.delay = strings.TrimSpace(splitLine[1])
+			if seconds, err := strconv.ParseFloat(value, 64); err == nil && seconds > 0 {
+				hos.crawlDelay = time.Duration(seconds * float64(time.Second))
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {

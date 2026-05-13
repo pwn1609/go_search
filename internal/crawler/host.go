@@ -8,7 +8,7 @@ import (
 )
 
 type Host struct {
-	delay          string
+	crawlDelay     time.Duration
 	subDomains     []string
 	baseDomain     string
 	seen           map[string]int

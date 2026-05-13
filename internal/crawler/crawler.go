@@ -82,6 +82,11 @@ func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *K
 		return
 	}
 
+	// Default to 1 second if no crawl-delay was specified
+	if hos.crawlDelay == 0 {
+		hos.crawlDelay = time.Second
+	}
+
 	hos.subDomains = append(hos.subDomains, hos.baseDomain)
 	for i := 0; i < len(hos.subDomains); i++ {
 		//temporary break - only crawl first 30 pages of a host
@@ -89,7 +94,7 @@ func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *K
 			break
 		}
 
-		time.Sleep(time.Second) //add * craw delay logic
+		time.Sleep(hos.crawlDelay)
 		domain := strings.TrimRight(hos.subDomains[i], "/")
 		hos.seen[domain] += 1
 
@@ -104,11 +109,18 @@ func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *K
 
 		//check status code
 		if resp.StatusCode != 200 {
+			resp.Body.Close()
 			fmt.Printf("Bad Status code from: %s \n", domain)
 			continue
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if err != nil {
+			fmt.Printf("Error reading response body: %s \n", err.Error())
+			continue
+		}
 
 		//send url and body to kafka
 		if !writer.SendMessage(Message{
@@ -128,7 +140,6 @@ func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *K
 		//determine if subdomain has been seen and determine if new host
 		//append new domains to list
 		for _, url := range links {
-			//only grab the first 10 links from a page
 			url = strings.TrimRight(url, "/")
 			if hos.seen[url] > 0 {
 				continue
@@ -152,8 +163,6 @@ func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *K
 			hos.subDomains = append(hos.subDomains, url)
 
 		}
-
-		resp.Body.Close()
 	}
 
 }
