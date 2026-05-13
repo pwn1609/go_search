@@ -29,8 +29,21 @@ class ESClient:
         else:
             print(f"Index '{self.index}' already exists")
     
-    def post_to_index(self, doc) -> bool: #add some sort of retry logic
-        print(doc.url)
+    def post_to_index(self, doc: "Indexed_Page") -> bool:
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                self.client.index(index=self.index, body={
+                    "url": doc.url,
+                    "title": doc.title,
+                    "body": doc.body,
+                    "timestamp": doc.timestamp,
+                })
+                return True
+            except Exception as e:
+                print(f"Failed to index {doc.url} (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt == max_retries - 1:
+                    return False
 
 
 
