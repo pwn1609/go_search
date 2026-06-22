@@ -11,6 +11,21 @@ import (
 	"time"
 )
 
+type seenHostsMap struct {
+	mu   sync.Mutex
+	seen map[string]bool
+}
+
+func (s *seenHostsMap) markIfUnseen(host string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.seen[host] {
+		return false
+	}
+	s.seen[host] = true
+	return true
+}
+
 type Crawler struct {
 	RetriesPerPage   int
 	RequestPerSecond int
@@ -21,7 +36,7 @@ type Crawler struct {
 func (s *Crawler) StartCrawl() {
 
 	var wg sync.WaitGroup
-	seenHosts := make(map[string]int)
+	seenHosts := &seenHostsMap{seen: make(map[string]bool)}
 	hosts := make(chan Host, 100)
 	startingHost := Host{
 		baseDomain: s.Config.Crawler.SeedURL,
@@ -38,38 +53,25 @@ func (s *Crawler) StartCrawl() {
 	fmt.Println(s.Config.Kafka.Brokers[0])
 	defer writer.Close()
 
+	sem := make(chan struct{}, s.Config.Crawler.MaxWorkers)
+
+	seenHosts.markIfUnseen(startingHost.baseDomain)
 	wg.Add(1)
 	hosts <- startingHost
-	i := 0
 
 	for host := range hosts {
-		//skip if already seen
-		i++
-
-		if seenHosts[host.baseDomain] == 0 {
-			fmt.Printf("Crawling: %s\n", host.baseDomain)
-			seenHosts[host.baseDomain] = 1
-			go s.crawl(&host, hosts, &wg, writer)
-		} else {
-			wg.Done()
-		}
-		if i >= 10 {
-			break
-		}
+		sem <- struct{}{}
+		h := host
+		go func() {
+			defer func() { <-sem }()
+			s.crawl(&h, hosts, &wg, seenHosts, writer)
+		}()
 	}
-
-	// Drain the channel so crawl goroutines blocked on list <- newHost can finish.
-	// Each drained item must release its wg count since the main loop won't process it.
-	go func() {
-		for range hosts {
-			wg.Done()
-		}
-	}()
 
 	wg.Wait()
 }
 
-func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *KafkaProducer) {
+func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, seenHosts *seenHostsMap, writer *KafkaProducer) {
 	defer wg.Done()
 
 	err := getRobotsTxt(hos.baseDomain, hos)
@@ -89,13 +91,10 @@ func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *K
 
 	hos.subDomains = append(hos.subDomains, hos.baseDomain)
 	for i := 0; i < len(hos.subDomains); i++ {
-		//temporary break - only crawl first 30 pages of a host
-		if i > 30 {
-			break
-		}
 
 		time.Sleep(hos.crawlDelay)
 		domain := strings.TrimRight(hos.subDomains[i], "/")
+		hos.subDomains[i] = "" // free processed entry
 		hos.seen[domain] += 1
 
 		resp, err := fetch(domain)
@@ -147,20 +146,25 @@ func (s *Crawler) crawl(hos *Host, list chan Host, wg *sync.WaitGroup, writer *K
 			//if new host then create a new host and add to channel then finish ittr
 			new, newbase := isNewHost(hos.baseDomain, url)
 			if new {
-				fmt.Printf("New host: %s \n", newbase)
-				newHost := Host{
-					baseDomain: newbase,
-					subDomains: make([]string, 0),
-					seen:       make(map[string]int),
+				if seenHosts.markIfUnseen(newbase) {
+					fmt.Printf("New host: %s \n", newbase)
+					newHost := Host{
+						baseDomain: newbase,
+						subDomains: make([]string, 0),
+						seen:       make(map[string]int),
+					}
+					wg.Add(1)
+					go func() { list <- newHost }()
 				}
-				wg.Add(1)
-				list <- newHost
 				continue
 			}
 			if isDisallowed(url, hos.disallowed) {
 				continue
 			}
-			hos.subDomains = append(hos.subDomains, url)
+			if len(hos.subDomains) < s.Config.Crawler.MaxPagesPerHost {
+				hos.subDomains = append(hos.subDomains, url)
+				hos.seen[url] = 1
+			}
 
 		}
 	}

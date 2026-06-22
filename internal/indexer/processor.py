@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 
 from elasticsearchclient import ESClient, Indexed_Page
 from consumer import Consumer
-from kafka import ConsumerRecord
+from kafka.consumer.fetcher import ConsumerRecord
 
 class Processor:
     def __init__(self, elasticsearch: ESClient, kafka: Consumer) -> None:
@@ -21,6 +21,7 @@ class Processor:
 
         page = Indexed_Page(url=normalized_url, title=page_title, body=cleaned_text, timestamp=msg.timestamp)
         self.es_client.post_to_index(page)
+        print(f"Indexed: {normalized_url} | title: {page_title!r}", flush=True)
 
     def normalize_url(self, url: str) -> str:
         if isinstance(url, bytes):

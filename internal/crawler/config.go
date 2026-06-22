@@ -18,7 +18,9 @@ type KafkaConfig struct {
 }
 
 type CrawlerConfig struct {
-	SeedURL string `yaml:"seed"`
+	SeedURL         string `yaml:"seed"`
+	MaxWorkers      int    `yaml:"maxWorkers"`
+	MaxPagesPerHost int    `yaml:"maxPagesPerHost"`
 }
 
 // Load reads and parses the YAML config file, then validates required fields.
@@ -57,6 +59,14 @@ func (c *Config) Validate() error {
 
 	if c.Crawler.SeedURL == "" {
 		return fmt.Errorf("crawler.seed is required")
+	}
+
+	if c.Crawler.MaxWorkers <= 0 {
+		c.Crawler.MaxWorkers = 5
+	}
+
+	if c.Crawler.MaxPagesPerHost <= 0 {
+		c.Crawler.MaxPagesPerHost = 500
 	}
 
 	return nil

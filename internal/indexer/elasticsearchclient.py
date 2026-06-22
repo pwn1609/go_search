@@ -33,7 +33,7 @@ class ESClient:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                self.client.index(index=self.index, body={
+                self.client.index(index=self.index, id=doc.url, body={
                     "url": doc.url,
                     "title": doc.title,
                     "body": doc.body,

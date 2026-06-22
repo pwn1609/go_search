@@ -5,3 +5,5 @@ kafka:
 
 crawler:
   seed: target.com
+  maxWorkers: 5
+  maxPagesPerHost: 500

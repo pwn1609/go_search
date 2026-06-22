@@ -4,8 +4,8 @@
 If no registry running: docker run -d -p 5000:5000 --name registry registry:2
 
 Crawler:
-- docker build -t localhost:5000/latest -f ./cmd/crawler/- Dockerfile .
-- docker push localhost:5000/latest
+- docker build -t localhost:5000/crawler:latest -f ./cmd/crawler/Dockerfile .
+- docker push localhost:5000/crawler:latest
 - helm install crawler ./charts/crawler
 
 - uninstall - helm uninstall crawler

@@ -32,6 +32,9 @@ func getLinksFromHTML(resp *http.Response, body []byte) []string {
 				return
 			}
 			abs := resp.Request.URL.ResolveReference(ref)
+			if abs.Scheme != "http" && abs.Scheme != "https" {
+				return
+			}
 			urls = append(urls, abs.String())
 		}
 	})

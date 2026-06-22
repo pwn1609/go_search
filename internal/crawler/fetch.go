@@ -12,6 +12,8 @@ import (
 
 const crawlerUserAgent = "MyCrawler/1.0"
 
+var httpClient = &http.Client{Timeout: 15 * time.Second}
+
 func fetch(raw string) (*http.Response, error) {
 	// Parse the URL first
 	u, err := url.Parse(raw)
@@ -42,9 +44,7 @@ func fetch(raw string) (*http.Response, error) {
 	// Set a User-Agent (important for crawlers)
 	req.Header.Set("User-Agent", crawlerUserAgent)
 
-	client := &http.Client{Timeout: 15 * time.Second}
-
-	return client.Do(req)
+	return httpClient.Do(req)
 }
 
 func getRobotsTxt(baseDom string, hos *Host) error {
@@ -58,8 +58,7 @@ func getRobotsTxt(baseDom string, hos *Host) error {
 	}
 	fmt.Printf("getRobotsTxt: fetching %s\n", urlRes)
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	res, err := client.Get(urlRes)
+	res, err := httpClient.Get(urlRes)
 	if err != nil {
 		return fmt.Errorf("getRobotsTxt: HTTP request to %q failed: %w", urlRes, err)
 	}
