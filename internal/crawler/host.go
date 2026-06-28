@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"golang.org/x/net/publicsuffix"
@@ -17,6 +18,19 @@ type Host struct {
 	errs           []string
 	disallowAll    bool
 	temporaryDelay time.Time // use as a delay to retry
+}
+
+func normalizePageURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	host := strings.TrimPrefix(u.Hostname(), "www.")
+	if port := u.Port(); port != "" {
+		host = host + ":" + port
+	}
+	u.Host = host
+	return u.String()
 }
 
 func isNewHost(currentHost, newStr string) (bool, string) {

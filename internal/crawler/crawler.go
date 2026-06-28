@@ -127,7 +127,7 @@ func (s *Crawler) crawl(baseDomain string, pagesWriter, hostsWriter *KafkaProduc
 		}
 
 		for _, rawURL := range links {
-			rawURL = strings.TrimRight(rawURL, "/")
+			rawURL = strings.TrimRight(normalizePageURL(rawURL), "/")
 			if hos.seen[rawURL] > 0 {
 				continue
 			}
