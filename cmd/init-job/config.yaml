@@ -1,6 +1,0 @@
-kafka:
-  brokers:
-    - kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
-  hostsTopic: crawler-hosts
-
-seed: "https://www.target.com/"
