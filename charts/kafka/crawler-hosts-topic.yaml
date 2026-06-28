@@ -1,7 +1,7 @@
 apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
-  name: crawler-pages
+  name: crawler-hosts
   namespace: kafka
   labels:
     strimzi.io/cluster: kafka-cluster

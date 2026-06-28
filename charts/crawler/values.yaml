@@ -1,4 +1,4 @@
-replicaCount: 1
+replicaCount: 3
 
 image:
   repository: localhost:5000/crawler
@@ -10,8 +10,5 @@ fullnameOverride: ""
 
 resources: {}
 
-env:
-  - name: KAFKA_BROKERS
-    value: "kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
-  - name: KAFKA_TOPIC
-    value: "crawler-pages"
+configMap:
+  name: crawler-config

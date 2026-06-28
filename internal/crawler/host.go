@@ -33,5 +33,5 @@ func isNewHost(currentHost, newStr string) (bool, string) {
 	curReg, _ := publicsuffix.EffectiveTLDPlusOne(currentHost)
 	newReg, err := publicsuffix.EffectiveTLDPlusOne(newHost)
 	// fmt.Printf("Host compare: %s, %s, %t \n", newReg, curReg, newReg != curReg)
-	return newReg != curReg, newHost
+	return newReg != curReg, newReg
 }

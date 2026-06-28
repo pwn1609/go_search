@@ -3,6 +3,7 @@ package crawler
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -10,17 +11,23 @@ import (
 type Config struct {
 	Kafka   KafkaConfig   `yaml:"kafka"`
 	Crawler CrawlerConfig `yaml:"crawler"`
+	Redis   RedisConfig   `yaml:"redis"`
 }
 
 type KafkaConfig struct {
-	Brokers []string `yaml:"brokers"`
-	Topic   string   `yaml:"topic"`
+	Brokers    []string `yaml:"brokers"`
+	PagesTopic string   `yaml:"pagesTopic"`
+	HostsTopic string   `yaml:"hostsTopic"`
+}
+
+type RedisConfig struct {
+	Addr     string        `yaml:"addr"`
+	ClaimTTL time.Duration `yaml:"claimTTL"`
 }
 
 type CrawlerConfig struct {
-	SeedURL         string `yaml:"seed"`
-	MaxWorkers      int    `yaml:"maxWorkers"`
-	MaxPagesPerHost int    `yaml:"maxPagesPerHost"`
+	MaxWorkers      int `yaml:"maxWorkers"`
+	MaxPagesPerHost int `yaml:"maxPagesPerHost"`
 }
 
 // Load reads and parses the YAML config file, then validates required fields.
@@ -53,12 +60,20 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	if c.Kafka.Topic == "" {
-		return fmt.Errorf("kafka.topic is required")
+	if c.Kafka.PagesTopic == "" {
+		return fmt.Errorf("kafka.pagesTopic is required")
 	}
 
-	if c.Crawler.SeedURL == "" {
-		return fmt.Errorf("crawler.seed is required")
+	if c.Kafka.HostsTopic == "" {
+		return fmt.Errorf("kafka.hostsTopic is required")
+	}
+
+	if c.Redis.Addr == "" {
+		return fmt.Errorf("redis.addr is required")
+	}
+
+	if c.Redis.ClaimTTL <= 0 {
+		c.Redis.ClaimTTL = 24 * time.Hour
 	}
 
 	if c.Crawler.MaxWorkers <= 0 {

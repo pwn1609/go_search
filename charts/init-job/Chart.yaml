@@ -1,0 +1,6 @@
+apiVersion: v2
+name: init-job
+description: One-shot job that seeds the first host into the crawler-hosts Kafka topic
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

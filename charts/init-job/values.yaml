@@ -1,0 +1,10 @@
+image:
+  repository: localhost:5000/init-job
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+configMap:
+  name: init-job-config
+
+nameOverride: ""
+fullnameOverride: ""

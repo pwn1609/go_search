@@ -19,14 +19,14 @@ type Message struct {
 	Value string
 }
 
-func NewKafkaProducer(address, topic string) *KafkaProducer {
+func NewKafkaProducer(brokers []string, topic string) *KafkaProducer {
 	newProducer := KafkaProducer{
-		BootstrapAddr: address,
+		BootstrapAddr: brokers[0],
 		Topic:         topic,
 	}
 
 	newProducer.writer = &kafka.Writer{
-		Addr:         kafka.TCP(address),
+		Addr:         kafka.TCP(brokers...),
 		Topic:        topic,
 		Balancer:     &kafka.LeastBytes{},
 		RequiredAcks: kafka.RequireOne,

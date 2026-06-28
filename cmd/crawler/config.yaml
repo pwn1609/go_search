@@ -1,9 +1,12 @@
 kafka:
   brokers:
     - kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
-  topic: crawler-pages
+  pagesTopic: crawler-pages
+  hostsTopic: crawler-hosts
+
+redis:
+  addr: redis.redis.svc.cluster.local:6379
 
 crawler:
-  seed: target.com
   maxWorkers: 5
   maxPagesPerHost: 500

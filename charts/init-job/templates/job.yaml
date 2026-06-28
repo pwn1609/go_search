@@ -1,29 +1,24 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: {{ include "crawler.fullname" . }}
+  name: {{ include "init-job.fullname" . }}
   labels:
-    app: {{ include "crawler.name" . }}
+    app: {{ include "init-job.name" . }}
 spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: {{ include "crawler.name" . }}
   template:
     metadata:
       labels:
-        app: {{ include "crawler.name" . }}
+        app: {{ include "init-job.name" . }}
     spec:
+      restartPolicy: OnFailure
       containers:
-        - name: crawler
+        - name: init-job
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
               subPath: config.yaml
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
