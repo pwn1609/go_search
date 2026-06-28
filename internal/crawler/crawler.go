@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -27,6 +28,7 @@ func (s *Crawler) StartCrawl() {
 	defer hostsWriter.Close()
 
 	redis := NewRedisClient(s.Config.Redis.Addr)
+	filter := NewFilter(s.Config.Filter)
 
 	sem := make(chan struct{}, s.Config.Crawler.MaxWorkers)
 
@@ -37,6 +39,11 @@ func (s *Crawler) StartCrawl() {
 			continue
 		}
 
+		if filter.IsBlocked(host) {
+			log.Printf("blocked host: %s", host)
+			continue
+		}
+
 		if !redis.TryClaimHost(ctx, host, s.Config.Redis.ClaimTTL) {
 			continue
 		}
@@ -44,12 +51,12 @@ func (s *Crawler) StartCrawl() {
 		sem <- struct{}{}
 		go func(h string) {
 			defer func() { <-sem }()
-			s.crawl(h, pagesWriter, hostsWriter)
+			s.crawl(h, pagesWriter, hostsWriter, filter)
 		}(host)
 	}
 }
 
-func (s *Crawler) crawl(baseDomain string, pagesWriter, hostsWriter *KafkaProducer) {
+func (s *Crawler) crawl(baseDomain string, pagesWriter, hostsWriter *KafkaProducer, filter *Filter) {
 	hos := &Host{
 		baseDomain: baseDomain,
 		subDomains: make([]string, 0),
@@ -101,6 +108,11 @@ func (s *Crawler) crawl(baseDomain string, pagesWriter, hostsWriter *KafkaProduc
 			continue
 		}
 
+		if len(bodyBytes) > s.Config.Crawler.MaxBodyBytes {
+			log.Printf("skipping oversized page %s (%d bytes)", domain, len(bodyBytes))
+			continue
+		}
+
 		if !pagesWriter.SendMessage(Message{
 			Key:   domain,
 			Value: string(bodyBytes),
@@ -114,26 +126,32 @@ func (s *Crawler) crawl(baseDomain string, pagesWriter, hostsWriter *KafkaProduc
 			continue
 		}
 
-		for _, url := range links {
-			url = strings.TrimRight(url, "/")
-			if hos.seen[url] > 0 {
+		for _, rawURL := range links {
+			rawURL = strings.TrimRight(rawURL, "/")
+			if hos.seen[rawURL] > 0 {
 				continue
 			}
-			new, newbase := isNewHost(hos.baseDomain, url)
+			if u, err := url.Parse(rawURL); err == nil {
+				if host := u.Hostname(); filter.IsBlocked(host) {
+					log.Printf("skipped blocked URL: %s", rawURL)
+					continue
+				}
+			}
+			new, newbase := isNewHost(hos.baseDomain, rawURL)
 			if new {
-				if !queuedNewHosts[newbase] {
+				if !queuedNewHosts[newbase] && !filter.IsBlocked(newbase) {
 					queuedNewHosts[newbase] = true
 					fmt.Printf("New host: %s \n", newbase)
 					hostsWriter.SendMessage(Message{Key: newbase, Value: newbase})
 				}
 				continue
 			}
-			if isDisallowed(url, hos.disallowed) {
+			if isDisallowed(rawURL, hos.disallowed) {
 				continue
 			}
 			if len(hos.subDomains) < s.Config.Crawler.MaxPagesPerHost {
-				hos.subDomains = append(hos.subDomains, url)
-				hos.seen[url] = 1
+				hos.subDomains = append(hos.subDomains, rawURL)
+				hos.seen[rawURL] = 1
 			}
 		}
 	}

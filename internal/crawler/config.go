@@ -12,6 +12,12 @@ type Config struct {
 	Kafka   KafkaConfig   `yaml:"kafka"`
 	Crawler CrawlerConfig `yaml:"crawler"`
 	Redis   RedisConfig   `yaml:"redis"`
+	Filter  FilterConfig  `yaml:"filter"`
+}
+
+type FilterConfig struct {
+	BlockedKeywords []string `yaml:"blockedKeywords"`
+	BlockedDomains  []string `yaml:"blockedDomains"`
 }
 
 type KafkaConfig struct {
@@ -28,6 +34,7 @@ type RedisConfig struct {
 type CrawlerConfig struct {
 	MaxWorkers      int `yaml:"maxWorkers"`
 	MaxPagesPerHost int `yaml:"maxPagesPerHost"`
+	MaxBodyBytes    int `yaml:"maxBodyBytes"`
 }
 
 // Load reads and parses the YAML config file, then validates required fields.
@@ -82,6 +89,10 @@ func (c *Config) Validate() error {
 
 	if c.Crawler.MaxPagesPerHost <= 0 {
 		c.Crawler.MaxPagesPerHost = 500
+	}
+
+	if c.Crawler.MaxBodyBytes <= 0 {
+		c.Crawler.MaxBodyBytes = 512 * 1024 // 512KB
 	}
 
 	return nil

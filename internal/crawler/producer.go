@@ -31,6 +31,7 @@ func NewKafkaProducer(brokers []string, topic string) *KafkaProducer {
 		Balancer:     &kafka.LeastBytes{},
 		RequiredAcks: kafka.RequireOne,
 		Async:        false,
+		Compression:  kafka.Gzip,
 	}
 
 	return &newProducer
